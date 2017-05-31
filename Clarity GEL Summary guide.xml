@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gel:script
+    xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:core="jelly:core"
+    xmlns:file="jelly:com.niku.union.gel.FileTagLibrary"
+    xmlns:soap="jelly:com.niku.union.gel.SOAPTagLibrary"
+    xmlns:ftp="jelly:com.niku.union.gel.FTPTagLibrary"
+    xmlns:gel="jelly:com.niku.union.gel.GELTagLibrary"
+    xmlns:mail="jelly:email"
+    xmlns:sql="jelly:sql"
+    xmlns:util="jelly:util"
+    xmlns:xog="http://www.niku.com/xog"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <gel:setDataSource dbId="Niku" var="clarityDS"/>
+
+<!--###################
+    Built-in Parameters
+    ###################
+
+    All built-in parameters have a "gel_" prefix and are of data type - numeric.
+
+    ${gel_objectInstanceId}
+        If no object is associated with the process, the ID is -1.
+        Otherwise the parameter contains the object instance ID.
+
+    ${gel_processId}
+        This is the process identifier;
+        all instances of this process share this identifier.
+
+    ${gel_processInstanceId}
+        This is the process instance identifier; 
+        all instances have a unique value.
+    
+    ################### -->
+
+
+    <!-- core:if -->
+    <core:if test="${hasDocs}">
+        …
+    </core:if>
+
+
+    <!-- core:choose -->
+    <core:choose>
+
+        <core:when test="${row[6].equals(&quot;&quot;)}">
+            …
+        </core:when>
+
+        <core:otherwise>
+            …
+        </core:otherwise>
+
+    </core:choose>
+
+
+    <!-- core:switch -->
+    <core:switch on="${caseType}">
+
+        <core:case fallThru="true" value="Incident"/>
+        <core:case value="Problem">
+            …
+        </core:case>
+
+        <core:case fallThru="true" value="Question"/>
+        <core:default>
+            …
+        </core:default>
+
+    </core:switch>
+
+
+    <!-- core:foreach -->
+    <sql:query var="result" dataSource="${clarityDS}">
+        select name, unique_name from srm_projects
+    </sql:query>
+    <!--
+    The data returned by such a query is made available in what can be considered an array with the name “result” in the above example.
+    The data contained in the “result” array can then be accessed via the looping structure <core:forEach …> </core:forEach>
+    -->
+    <core:forEach trim="true" items="${result.rowsByIndex}" var="row">
+        <core:forEach var="field" items="${row}">
+            <gel:out>${field}</gel:out>
+        </core:forEach>
+    </core:forEach>
+
+
+    <!--<gel:parse> 
+    The <gel:parse> tag is used to create an XML document in memory. This is how you will build XOG requests.
+    The tag can be used to generate an entire XML document, or specific nodes that can later be attached into an existing XML document.
+    -->
+        <gel:parse var="loadContent">
+            <NikuDataBus
+                xmlns:xsi=http://www.w3.org/2001/XMLSchema-instance
+                xsi:noNamespaceSchemaLocation="../xsd/nikuxog_resource.xsd">
+                <Header version="12.0.0.5028" action="write" objectType="resource" externalSource="ORACLE-FINANCIAL"/>
+                <Resources>
+                    <Resource resourceId="abc" isActive="true">
+                        <PersonalInformation lastName="doe" firstName="john" emailAddress="jdoe@ca.com"/>
+                    </Resource>
+                </Resources>
+            </NikuDataBus>
+        </gel:parse>
+
+
+
+    <!-- Variables and Parameters -->
+    XML syntax needs double quotes at times:	
+        <core:set var="vs_Holder" value="${gel_objectInstanceId}"/>
+    SQL syntax needs single quotes at times:	
+        ...where text_field = '${vs_MyVar}'
+
+
+    <!-- gel:set -->
+    Use this tag when it is necessary to extract the value of the variable from an XML document.
+    This tag differs from the <core:set> tag in that it takes a select attribute which in turn 
+    requires an XPath statement. If you are unfamiliar with XPath, think of it as a hierarchy
+    mapping of the XML document. In the example below, the select statement points the way to the Statistics node of a XOG output file.
+    <gel:set asString="false"
+        select="$XOGresult/SOAP-ENV:Envelope/SOAP-ENV:Body/NikuDataBus/XOGOutput/Statistics"
+        var="stats"/>
+
+
+    <!-- core:set
+    This tag is used to set basic variables; that is, ones that do
+    not need to be extracted from an XML document.
+    Refer to the variable using the ${variablename} syntax.  -->
+
+    <core:set value="1" var="yes"/>
+    <gel:out>${yes}</gel:out>
+
+    <!-- You can do some basic math on the variable: -->
+    <gel:out>${yes+2}</gel:out>
+
+    <gel:parameter var="p_sender" default="clarity@ca.com"/>
+    <gel:parameter var="hostname" default="http://localhost:80//xog"/>
+    <gel:parameter var="username" default ="admin"/>
+    <gel:parameter var="password" secure="true"/>
+
+    <!-- Persistent variables -->
+    <core:set value="${gel_objectInstanceId}" var="myObjectId"/>
+    <gel:persist scope="INSTANCE" var="myObjectId"/>
+
+    <!-- Comment: (In)famous "Hello World" example -->
+    <core:set value="Hello World" var="hello"/>
+    <core:forEach indexVar='i' begin='1' end='3'>
+        <gel:out>${hello} ${i}!</gel:out>
+    </core:forEach>
+
+
+
+
+</gel:script>
+
+
+
+
+
+
+
+<!-- X O G
+
+Read CustomObjectInstances
+ 
+A CustomObjectInstances read request requires the namespace niku_xog_read.xsd and then the <CustomObjectInstanceQuery> element.
+ 
+The CustomObjectInstanceQuery element allows you to filter on instances of one or more custom objects using the following filter attributes:
+    objectCode      ->  Refers to the custom object ID as defined in Studio.
+    instanceCode    ->  Refers to the custom object instance ID as defined in Studio.
+
+For more information, see the Studio Developer’s Guide.
+
+Example XML Read Request
+
+The following XML shows an example read CustomObjectInstance request and how it uses the <CustomObjectInstanceQuery> element.
+-->
+
+ <obj:ReadCustomObjectInstance xmlns:obj="http://www.niku.com/xog/Object">
+   <NikuDataBus xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../xsd/nikuxog_read.xsd">
+      <Header version="12.0.0.5028" externalSource="NIKU"/>
+         <CustomObjectInstanceQuery>
+            <Filter name="objectCode" criteria="EQUALS">training_modules</Filter>
+               <Filter name="instanceCode" criteria="EQUALS">Business Ethics </Filter>
+         </CustomObjectInstanceQuery>
+   </NikuDataBus>
+</obj:ReadCustomObjectInstance>
+
+
+
+
+
+
+
+
